@@ -1,0 +1,387 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Changelog Garp 3</title>
+    <link rel="stylesheet" href="css/base.css">
+  </head>
+  <body>
+    <header>
+      <h1>Changelog Garp 3</h1>
+    </header>
+    <main>
+      <aside>
+        <nav>
+          <h3>Table of contents</h3>
+          <ul>
+            <li><a href="#intro">Intro</a></li>
+            <li><a href="#v3.10">Version 3.10</a></li>
+            <li><a href="#v3.9.61">Version 3.9.61</a></li>
+            <li><a href="#v3.9.53">Version 3.9.53</a></li>
+            <li><a href="#v3.9.40">Version 3.9.40</a></li>
+            <li><a href="#v3.9">Version 3.9</a></li>
+            <li><a href="#v3.8">Version 3.8</a></li>
+            <li><a href="#v3.7">Version 3.7</a></li>
+            <li><a href="#v3.6">Version 3.6</a></li>
+            <li><a href="#v3.5">Version 3.5</a></li>
+            <li><a href="#v3.4">Version 3.4</a></li>
+            <li><a href="#v3.3">Version 3.3</a></li>
+            <li><a href="#v3.2">Version 3.2</a></li>
+            <li><a href="#v3.1">Version 3.1</a></li>
+          </ul>
+        </nav>
+      </aside>
+      <section id="intro">
+        <p>Here we keep track of backward-incompatible changes.</p>
+        <p>For every (necessary) backward-incompatible Garp update we create a new tag, with an incremented minor version number.</p>
+        <p>(not entirely semver-compatible, we know, but historically more compatible with how we came to Garp version 3 in the first place)</p>
+      </section>
+      <section id="v3.10">
+        <h2>
+          <a id="user-content-version-310" class="anchor" href="#version-310" aria-hidden="true"></a>Version 3.10</h2>
+        <p>Asset URL generation has changed once more.
+          Fortunately, is has been greatly simplified. There's no more attempted intelligence in constructing an s3 URL at either HTTPS or HTTP, with or without a bucket, on a custom domain, et cetera.</p>
+        <p>All you have to do is configure:</p>
+<pre><code>cdn.baseUrl = "https://s3-eu-west-1.amazonaws.com/bucket"
+</code></pre>
+        <p>That's it. Provide everything up to the paths that are fed to the <code>assetUrl</code> helper at runtime.</p>
+        <p>Note that nothing changed to the path manipulation logic, so versioning or hashing still works.<br>
+          Also, local exceptions for assets are still allowed:</p>
+<pre><code>cdn.baseUrl = "https://s3-eu-west-1.amazonaws.com/bucket"
+cdn.css.location = "local"
+</code></pre>
+          <p>This still puts CSS files on a relative path (<code>/css/base.css</code>) but uploaded files will be loaded from the external domain (<code>https://s3-eu-west-1.amazonaws.com/bucket/uploads/images/funny-monkey.gif</code>).</p>
+        </section>
+        <section id="v3.9.61">
+          <h2>Version 3.9.61</h2>
+          <p>When memcached is configured, it HAS to be running, otherwise an exception is thrown. Sounds fair, right? In the past however, Garp would fallback to the <code>BlackHole</code> cache if Memcache was unavailable.<br>
+            We want to be explicit in our behaviors rather than implicit, therefore this was changed. You can simply configure Memcached to be <code>NULL</code> and no connection attempts are made.</p>
+<pre><code>// @file application/configs/environment.php
+$memcachedPorts = array(
+    'production'  =&gt; 11211,
+    'staging'     =&gt; 11211,
+    'development' =&gt; null,
+    'testing'     =&gt; null
+);
+
+// @file tests/TestHelper.php
+define('APPLICATION_ENV', 'testing');
+define('MEMCACHE_HOST', null);
+define('MEMCACHE_PORT', null);
+</code></pre>
+            <p>Note that this is not considered to be a breaking change because historically, all production and staging environments are configured correctly. It's only local development machines that are hurt by this. The fix is so easy that I trust devs to make quick work of this nuisance.</p>
+          </section>
+          <section id="v3.9.53">
+            <h2>
+              <a id="user-content-version-3953" class="anchor" href="#version-3953" aria-hidden="true"></a>Version 3.9.53</h2>
+            <p>Garp will look for <code>composer.phar</code> in the shared folder when deployed with Capistrano. If it's there, it will execute <code>composer install</code>. This allows you to put the entire <code>vendor</code> folder inside <code>.gitignore</code>.</p>
+            <p><a href="https://getcomposer.org/doc/faqs/how-to-install-composer-programmatically.md">Take a look at this script to find out how to install Composer on the server</a></p>
+            <p>Note: in a clustered environment every webserver should have its own <code>composer.phar</code>.<br>
+              Also: development machines are pretty rad and run things like PHP 7. Webservers sometimes are kinda wack and run things like PHP 5.3.</p>
+            <p>You can configure the following in <code>composer.json</code> to make sure you never install dependencies that cannot run in the target environment:</p>
+<pre><code>"config": {
+  "platform": {
+    "php": "5.3.3"
+  }
+}
+
+</code></pre>
+          </section>
+          <section id="v3.9.40">
+            <h2>
+              <a id="user-content-version-3940" class="anchor" href="#version-3940" aria-hidden="true"></a>Version 3.9.40</h2>
+            <p>Tiny change that should not really affect you but might still: the cache directory for HTMLPurifier must be configured explicitly.</p>
+<pre><code>htmlFilterable.cachePath = APPLICATION_PATH "/data/cache/htmlpurifier"
+</code></pre>
+            <p>Note that it's also recommended to specify something nested <em>inside</em> <code>application/data/cache</code>. In the past its <code>URI</code>, <code>HTML</code> and <code>CSS</code> directories ended up directly inside <code>/application/data/cache</code>, but in order to namespace everything a bit more neatly, let's use a dedicated folder. (incidentally: this is also the directory that Capistrano will auto-create on the web server)</p>
+            <p>If not configured, no path will be specified to HTMLPurifier.</p>
+          </section>
+          <section id="v3.9">
+            <h2>
+              <a id="user-content-version-39" class="anchor" href="#version-39" aria-hidden="true"></a>Version 3.9</h2>
+            <p>Translatable behavior has been refactored. (See commit <a href="https://github.com/grrr-amsterdam/garp3/commit/4d200b62d5d70f8b0a08499e683d10c47baaf6ef">https://github.com/grrr-amsterdam/garp3/commit/4d200b62d5d70f8b0a08499e683d10c47baaf6ef</a>)</p>
+            <p>Because of this change, the database of multilingual projects needs an update. The fallback system is gone, so data needs to be migrated from the default language to all others.<br>
+              A CLI command is provided for this purpose:</p>
+<pre><code>g i18n populateLocalizedRecords
+</code></pre>
+              <p>Note that the process reads every multilingual record in your project and migrates its content to the accompanying record in every other language. It might take a long time to finish.</p>
+              <p>Also, a tiny change is made to reflect recent Gulp setups. Projects are now required to have both a <code>assets.js.root</code> and a <code>assets.js.build</code> directory.<br>
+                It used to be just <code>root</code>, but as of now that's reserved for your Javascript source files as opposed to actual compiled files. Example:</p>
+<pre><code>assets.js.root = "/js/src"
+assets.js.build = "/js/build/prod"
+</code></pre>
+                <p><img class="emoji" title=":exclamation:" alt=":exclamation:" src="https://camo.githubusercontent.com/9679afa5df318e5db422aa1b784aa9f98a18c5f7/68747470733a2f2f6173736574732d63646e2e6769746875622e636f6d2f696d616765732f69636f6e732f656d6f6a692f756e69636f64652f323735372e706e67" height="20" width="20" align="absmiddle" data-canonical-src="https://assets-cdn.github.com/images/icons/emoji/unicode/2757.png"> <em>Make sure that je new js build path is also updated in the gulpfile!</em></p>
+                <p>That's it! You're done. ☕</p>
+              </section>
+              <section id="v3.8">
+                <h2>
+                  <a id="user-content-version-38" class="anchor" href="#version-38" aria-hidden="true"></a>Version 3.8</h2>
+                <p>Garp moved to a Composer package.<br>
+                  This changes Garp a lot in that it has be able to stand on its own when tested for instance. A lot of unit tests broke because they relied on Garp being part of a bigger project. These tests have been moved out of Garp (conceptually you could say they're integration tests) and into a Garp sandbox project.</p>
+                <p><em>Make sure you update Golem before updating Garp!</em></p>
+                <p><a href="garp-composer">To migrate to Garp composer version, see the accompanying wiki article.</a></p>
+                <p>That should be your step 1 in upgrading. Just make sure you require <code>^3.8.0</code>. Run <code>composer update</code> to install.</p>
+                <p><img class="emoji" title=":exclamation:" alt=":exclamation:" src="https://camo.githubusercontent.com/9679afa5df318e5db422aa1b784aa9f98a18c5f7/68747470733a2f2f6173736574732d63646e2e6769746875622e636f6d2f696d616765732f69636f6e732f656d6f6a692f756e69636f64652f323735372e706e67" height="20" width="20" align="absmiddle" data-canonical-src="https://assets-cdn.github.com/images/icons/emoji/unicode/2757.png"> Look into <a href="empty-composer">this issue</a> if you're getting empty Composer packages on your web server (most often noted by an error stating <code>Zend_Registry</code> cannot be found when deploying).</p>
+                <p>Secondly:</p>
+                <ul>
+                  <li>Update <code>composer.json</code> in the host project to autoload its own <code>App_</code> and <code>Model_</code> namespaces.</li>
+                </ul>
+<pre><code>    "autoload": {
+        "psr-0": {
+            "App_": "library/",
+            "Golem_": "library/",
+            "Model_": "application/modules/default/"
+        }
+    }
+</code></pre>
+                <p><code>Garp_Loader</code> is <em>deprecated</em> in favor of Composer's autoloader.</p>
+                <ul>
+                  <li>Create <code>tests/TestHelper.php</code>
+                  </li>
+                </ul>
+<pre><code>&lt;?php
+date_default_timezone_set('Europe/Amsterdam');
+define('APPLICATION_ENV', 'testing');
+define('BASE_PATH', realpath(dirname(__FILE__) . '/..'));
+
+error_reporting(-1);
+ini_set('log_errors', 0);
+ini_set('display_startup_errors', 1);
+ini_set('display_errors', 'stderr');
+
+$garpRoot = BASE_PATH . '/vendor/grrr-amsterdam/garp3';
+require_once $garpRoot . '/application/init.php';
+
+$application = new Garp_Application(
+	APPLICATION_ENV,
+	APPLICATION_PATH . '/configs/application.ini'
+);
+
+$application-&gt;bootstrap();
+Zend_Registry::set('application', $application);
+
+$mem = new Garp_Util_Memory();
+$mem-&gt;useHighMemory();
+</code></pre>
+                <ul>
+                  <li>If you're not already loading <code>vendor/autoload.php</code> in your <code>index.php</code>, make sure you do:</li>
+                </ul>
+<pre><code>// file: public/index.php
+require_once('../vendor/autoload.php');
+</code></pre>
+                <ul>
+                  <li>Rename <code>application/modules/default/models</code> to <code>application/modules/default/Model</code> (to support <code>psr-0</code> style autoloading).</li>
+                  <li>Run <code>g models migrateGarpModels</code>. Garp models have moved from the <code>G_Model_</code> namespace to the <code>Garp_Model_Db_</code> namespace. Make sure your project doesn't reference the former still.
+                    It's possible your <code>AuthLocal</code> model is not correctly configured to extend from Garp. Make sure <code>"module": "garp"</code> is in <code>AuthLocal.json</code> and its extended model extends from <code>Garp_Model_Db_AuthLocal</code>.</li>
+                  <li>You can remove <code>library/PHPExcel</code> and <code>library/Zend</code>: they're required by Composer.</li>
+                </ul>
+              </section>
+              <section id="v3.7">
+                <h2>
+                  <a id="user-content-versie-37" class="anchor" href="#versie-37" aria-hidden="true"></a>Versie 3.7</h2>
+                <p>Alle tabellen worden vanaf deze versie in lowercase gegenereerd.
+                  Het is dus zaak het volgende stappenplan aan te houden:</p>
+                <ul>
+                  <li>hernoem je tabellen naar de lowercase variant. (volledig lowercase, <code>_MovieGenre</code> wordt dus <code>_moviegenre</code>)</li>
+                  <li>draai <code>g spawn</code>
+                  </li>
+                  <li>herschrijf alle referenties naar de oude tabelnamen. In Ack kun je de volgende query gebruiken: <code>[ `\'\(]+Cinema[ `\'\.]+</code> om ze te vinden.</li>
+                </ul>
+                <p>Optioneel: je kunt in <code>app.ini</code> de parameter <code>app.domain</code> vullen, voor FullUrl helpers e.d.</p>
+              </section>
+              <section id="v3.6">
+                <h2>
+                  <a id="user-content-versie-36-git" class="anchor" href="#versie-36-git" aria-hidden="true"></a>Versie 3.6 (Git)</h2>
+                <p>(ik weet niet zeker of we dit 3.6 noemen!)</p>
+                <h3>
+                  <a id="user-content-cms-stylesheetsphtml-partial--cmscss" class="anchor" href="#cms-stylesheetsphtml-partial--cmscss" aria-hidden="true"></a>cms-stylesheets.phtml partial + cms.css</h3>
+                <p>@harmenjanssen (12-12-2012)</p>
+                <ul>
+                  <li>cms.css is verplaatst naar Sass, d.w.z. dat de echte CSS file dus in <code>/public/css/compiled</code> staat. In het CMS wordt dit pad gebruikt. Mocht je nou geen icoontjes zien bij de datatypes kijk dan even of deze file wel goed geladen wordt.</li>
+                  <li>er is een partial bijgekomen: <code>cms-stylesheets.phtml</code>. Hierin kun je app-specifieke stylesheets kwijt. Bovenstaande cms.css wordt daar ook in gezet. Met de komende WYSIWYG editor is dat heel handig omdat je nog wel wat custom styles zou moeten kunnen toevoegen (zoals een @font-face dingetje van Google of Typekit). Als deze partial er niet is krijg je logischerwijs een dikke error.</li>
+                </ul>
+              </section>
+              <section id="v3.5">
+                <h2>
+                  <a id="user-content-versie-35" class="anchor" href="#versie-35" aria-hidden="true"></a>Versie 3.5</h2>
+                <p>svn.grrr.nl/garp3/code/branches/3_5</p>
+                <h3>
+                  <a id="user-content-storage-type-cookie" class="anchor" href="#storage-type-cookie" aria-hidden="true"></a>Storage type Cookie</h3>
+                <p>Toevoegen aan <code>core.ini</code>:</p>
+<pre><code>store.type = "Cookie"
+</code></pre>
+                <h3>
+                  <a id="user-content-volgorde-class-hiërarchie-veranderd-voor-garp-modellen" class="anchor" href="#volgorde-class-hi%C3%ABrarchie-veranderd-voor-garp-modellen" aria-hidden="true"></a>Volgorde class hiërarchie veranderd voor Garp modellen</h3>
+                <p>Let op! Modellen die afstammen van een Garp model afstammen moeten iets anders inheriten dan het geval was:</p>
+<pre><code>Model_Image &gt; G_Model_Image &gt; Model_Base_Image
+</code></pre>
+                <p>in plaats van:</p>
+<pre><code>Model_Image &gt; Model_Base_Image &gt; G_Model_Image
+</code></pre>
+                <p>Je zult dus je app-specifieke modellen aan moeten passen.</p>
+                <h3>
+                  <a id="user-content-app-specifieke-cms-icons" class="anchor" href="#app-specifieke-cms-icons" aria-hidden="true"></a>App-specifieke cms icons</h3>
+                <p>@davidspreekmeester
+                  public/css/cms-icons.css heet nu
+                  public/css/cms.css</p>
+                <h3>
+                  <a id="user-content-applicationini-auth-config-notatie" class="anchor" href="#applicationini-auth-config-notatie" aria-hidden="true"></a>[application.ini] Auth config notatie</h3>
+                <p>@harmenjanssen
+                  We hanteren een nieuwe syntax voor auth variabelen, specifiek voor het auth.login.* en auth.login.register.* stukje. In de scaffoldversie van application.ini kun je het juiste formaat al vinden. Voorbeeld:</p>
+<pre><code>auth.login.view = “login.phtml”
+</code></pre>
+                  <h3>
+                    <a id="user-content-database-auth-tabellen-hernoemd" class="anchor" href="#database-auth-tabellen-hernoemd" aria-hidden="true"></a>[database] Auth tabellen hernoemd</h3>
+                  <p>@harmenjanssen
+                    We zijn van auth_facebook en auth_local en auth_twitter enzovoorts gegaan naar de Garp 3.4 nieuwe stijl namen AuthFacebook, AuthLocal, AuthTwitter etc.</p>
+                  <h3>
+                    <a id="user-content-database-aanpassing-benaming-relatiekolommen-in-homofiele-relaties" class="anchor" href="#database-aanpassing-benaming-relatiekolommen-in-homofiele-relaties" aria-hidden="true"></a>[database] Aanpassing benaming relatiekolommen in homofiele relaties</h3>
+                  <p>@davidspreekmeester
+                    Waar een homofiele relatietabel zoals _UserUser voorheen de kolommen user_id1 en user_id2 zou hebben, gebruiken we vanaf 3.5 user1_id en user2_id.</p>
+                  <h3>
+                    <a id="user-content-consistentere-configuratie-voor-hasandbelongstomany-relaties" class="anchor" href="#consistentere-configuratie-voor-hasandbelongstomany-relaties" aria-hidden="true"></a>Consistentere configuratie voor hasAndBelongsToMany relaties</h3>
+                  <p>@davidspreekmeester
+                    Voorheen hadden we het bestand _HabtmRelations.json, waar alle hasAndBelongsToMany relaties in gedefinieerd worden. Vanaf 3.5 dienen deze relaties in de configuratie van het eerste model in de relatie (alfabetisch gezien) te gebeuren. De configuratie is hetzelfde als voor andere typen relaties, maar dan met type: hasAndBelongsToMany. Zie de Spawner docs voor uitgebreidere info.</p>
+                  <h3>
+                    <a id="user-content-aanpassing-kolom-videoauthor-naar-videovideo_author" class="anchor" href="#aanpassing-kolom-videoauthor-naar-videovideo_author" aria-hidden="true"></a>Aanpassing kolom Video.author naar Video.video_author</h3>
+                  <p>@harmenjanssen
+                    Omdat de virtuele kolom Author ook al wordt toegevoegd in de joint view.
+                    Pas bij bestaande data eerst de kolom in de database aan (zodat je geen data kwijt raakt).
+                    Pas daarna de Spawn config aan en draai een Spawn.</p>
+                  <h3>
+                    <a id="user-content-opzet-modules-is-veranderd-layoutbroker-plugin-is-geïntroduceerd" class="anchor" href="#opzet-modules-is-veranderd-layoutbroker-plugin-is-ge%C3%AFntroduceerd" aria-hidden="true"></a>Opzet modules is veranderd, LayoutBroker plugin is geïntroduceerd</h3>
+                  <p>@harmenjanssen
+                    Pas het volgende aan in <strong>application.ini</strong>:</p>
+<pre><code>-resources.layout.layoutPath = APPLICATION_PATH "/modules/default/views/layouts"
++resources.layout =
++resources.frontController.plugins.LayoutBroker = "Garp_Controller_Plugin_LayoutBroker"
+
+-resources.frontController.moduleDirectory = APPLICATION_PATH "/modules"
++resources.frontController.moduleDirectory[] = APPLICATION_PATH "/modules"
++resources.frontController.moduleDirectory[] = APPLICATION_PATH "/../garp/application/modules"
+</code></pre>
+                    <p>De symlink "g" in <strong>APPLICATION_PATH "/modules"</strong> moet vanaf nu wijzen naar <code>garp/application/modules/g</code>.</p>
+                  </section>
+                  <section id="v3.4">
+                    <h2>
+                      <a id="user-content-versie-34" class="anchor" href="#versie-34" aria-hidden="true"></a>Versie 3.4</h2>
+                    <p>svn.grrr.nl/garp3/code/branches/3_4</p>
+                    <h3>
+                      <a id="user-content-js-models--base-js-models" class="anchor" href="#js-models--base-js-models" aria-hidden="true"></a>JS models / Base JS models</h3>
+                    <p>@peter
+                      Geen support meer voor xtype = ‘compositefield’. Gebruik nu xtype = ‘fieldset’ met layout = ‘hbox’ om visueel de zelfde rendering te verkrijgen.</p>
+                    <h3>
+                      <a id="user-content-spawnen-base-model-goo-minified-en-geclusterd" class="anchor" href="#spawnen-base-model-goo-minified-en-geclusterd" aria-hidden="true"></a>Spawnen Base model goo (minified en geclusterd)</h3>
+                    <p>@davidspreekmeester
+                      De aanroep in models.phtml is veranderd. Dit bestand wordt nu nog maar gedeeltelijk gespawnd. Er moeten wat Ext aanroepen voor en na de gespawnde aanroepen. Zie</p>
+                    <p>garp/scripts/scaffold/application/modules/default/views/scripts/partials/models.phtml</p>
+                    <p>voor de juiste syntax. Dit kun je gebruiken als inhoud voor models.phtml in de applicatie, een Spawn-sessie daarna zal de rest aanvullen.</p>
+                  </section>
+                  <section id="v3.3">
+                    <h2>
+                      <a id="user-content-versie-33" class="anchor" href="#versie-33" aria-hidden="true"></a>versie 3.3</h2>
+                    <p>svn.grrr.nl/garp3/code/branches/3_3
+                      revision 3357
+                      25 november 2011</p>
+                    <h3>
+                      <a id="user-content-rollen--rechten-voor-cms" class="anchor" href="#rollen--rechten-voor-cms" aria-hidden="true"></a>Rollen / Rechten voor CMS</h3>
+                    <p>@harmenjanssen
+                      Alle modellen moeten in acl.ini genoemd worden zodat ze in ACL bekend worden en door de Content Manager gebruikt worden. Als ze er niet instaan kun je ze niet editen in het CMS.
+                      Bijvoorbeeld: (bij resources)
+                      acl.resources.G_Model_Video.id = "G_Model_Video"
+                      acl.resources.Model_BlogPost.id = "Model_BlogPost"
+                      En dan ook nog: (bij permissions)
+                      acl.resources.G_Model_Video.allow.all.roles = "admin"
+                      acl.resources.Model_BlogPost.allow.all.roles = "admin"
+                      Zie n8.nl voor een recente implementatie.</p>
+                    <h3>
+                      <a id="user-content-caching-refactor" class="anchor" href="#caching-refactor" aria-hidden="true"></a>Caching refactor</h3>
+                    <p>@harmenjanssen
+                      application/configs/cache.ini moet aanwezig zijn. Hoeft niet per sé gevuld te zijn, maar er moeten  wel entries voor production / staging / development in staan . Zie n8_garp3 repository voor een voorbeeld van de daadwerkelijke implementatie.</p>
+                  </section>
+                  <section id="v3.2">
+                    <h2>
+                      <a id="user-content-versie-32" class="anchor" href="#versie-32" aria-hidden="true"></a>versie 3.2</h2>
+                    <blockquote>
+                      <p>revision ?
+                        datum?
+                        Asset version
+                        @harmenjanssen
+                        In public/.htaccess dient:
+                        <code>RewriteRule ^([0-9]+)/(css|js|media)/(.*) $2/$3 [L]</code>
+                        vervangen te worden door:
+                        <code>RewriteRule ^(\d+)/(css|js|media)/(.*) $2/$3 [L]</code></p>
+                    </blockquote>
+                  </section>
+                  <section id="v3.1">
+                    <h2>
+                      <a id="user-content-versie-31" class="anchor" href="#versie-31" aria-hidden="true"></a>versie 3.1</h2>
+                    <blockquote>
+                      <p>revision 2684
+                        20 september 2011
+                        Image / storage refactor
+                        @davidspreekmeester
+                        Snippet.image is een veld met een filename, dit moet Snippet.image_id worden, die verwijst naar een image record.
+                        De entries voor cdn in application.ini zijn veranderd.
+                        De benodigde entries zijn:</p>
+                    </blockquote>
+<pre><code>cdn.type = 'local'
+cdn.domain = HTTP_HOST
+
+;cdn.type = 's3'
+;cdn.domain = "grrr.nl.s3.amazonaws.com"
+
+cdn.extensions = "jpg,jpeg,gif,png,zip,pdf,xls,xlsx,csv"
+
+cdn.path.upload.image = "/uploads/images"
+cdn.path.upload.document = "/uploads/documents"
+cdn.path.static.image = "/2011/media/images"
+cdn.path.static.document = "/2011/documents"
+
+;cdn.s3.apikey = "AKIAJHH2JPAH2R7NIUXA"
+;cdn.s3.secret = "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"
+;cdn.s3.bucket = "grrr.nl"
+</code></pre>
+                    <p>De volgende entries voor de setup van images in <strong>application.ini</strong> kunnen verwijderd worden:</p>
+<pre><code>image.uri.scaled = '/uploads/images/scaled/'
+image.uri.upload = '/uploads/images/'
+image.path.upload = APPLICATION_PATH "/../public/uploads/images/"
+image.path.scaled = APPLICATION_PATH "/../public/uploads/images/scaled/"
+image.host.static = "http://" HTTP_HOST
+</code></pre>
+                    <p>In plaats van CDN moet in Javascript IMAGES_CDN en DOCUMENTS_CDN gezet zijn.</p>
+                  </section>
+
+
+                </main>
+                <footer>
+                  <div>
+                    <h2>Footer!</h2>
+                    <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor
+                      incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud
+                      exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure
+                      dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+                      Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit
+                      anim id est laborum.</p>
+                  <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor
+                      incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud
+                      exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure
+                      dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+                      Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit
+                      anim id est laborum.</p>
+                    <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor
+                      incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud
+                      exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure
+                      dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+                      Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit
+                      anim id est laborum.</p>
+                    <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor
+                      incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud
+                      exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure
+                      dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+                      Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit
+                      anim id est laborum.</p>
+                  </div>
+                </footer>
+              </body>
+            </html>
